@@ -1,0 +1,84 @@
+package com.fintrack.service;
+
+import com.fintrack.dto.TransactionDto;
+import com.fintrack.entity.Transaction;
+import com.fintrack.entity.User;
+import com.fintrack.repository.TransactionRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class TransactionService {
+
+    private final TransactionRepository transactionRepository;
+
+    public TransactionDto.Response create(TransactionDto.Request request, User user) {
+        Transaction transaction = Transaction.builder()
+                .description(request.getDescription())
+                .amount(request.getAmount())
+                .type(request.getType())
+                .category(request.getCategory())
+                .date(request.getDate())
+                .notes(request.getNotes())
+                .user(user)
+                .build();
+
+        return toResponse(transactionRepository.save(transaction));
+    }
+
+    public List<TransactionDto.Response> getAll(Long userId) {
+        return transactionRepository.findByUserIdOrderByDateDesc(userId)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    public List<TransactionDto.Response> getByMonth(Long userId, int month, int year) {
+        return transactionRepository.findByUserIdAndMonthAndYear(userId, month, year)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    public TransactionDto.Response update(Long id, TransactionDto.Request request, Long userId) {
+        Transaction transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Transaction not found"));
+
+        if (!transaction.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized");
+        }
+
+        transaction.setDescription(request.getDescription());
+        transaction.setAmount(request.getAmount());
+        transaction.setType(request.getType());
+        transaction.setCategory(request.getCategory());
+        transaction.setDate(request.getDate());
+        transaction.setNotes(request.getNotes());
+
+        return toResponse(transactionRepository.save(transaction));
+    }
+
+    public void delete(Long id, Long userId) {
+        Transaction transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Transaction not found"));
+
+        if (!transaction.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized");
+        }
+
+        transactionRepository.delete(transaction);
+    }
+
+    private TransactionDto.Response toResponse(Transaction t) {
+        return TransactionDto.Response.builder()
+                .id(t.getId())
+                .description(t.getDescription())
+                .amount(t.getAmount())
+                .type(t.getType())
+                .category(t.getCategory())
+                .date(t.getDate())
+                .notes(t.getNotes())
+                .createdAt(t.getCreatedAt())
+                .build();
+    }
+}
