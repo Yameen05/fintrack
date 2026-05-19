@@ -161,6 +161,7 @@ public class PlaidService {
         for (PlaidItem item : items) {
             try {
                 String accessToken = encryptionService.decrypt(item.getAccessTokenEncrypted());
+                syncAccounts(item, accessToken);
                 totalNew += syncTransactionsInternal(item, accessToken);
             } catch (Exception e) {
                 log.error("Sync failed for item {}: {}", item.getItemId(), e.getMessage());
@@ -238,6 +239,10 @@ public class PlaidService {
             body.put("secret", secret);
             body.put("access_token", accessToken);
             if (cursor != null && !cursor.isBlank()) body.put("cursor", cursor);
+            // Opt in to Plaid's new categorization taxonomy — without this every
+            // transaction would default to "Other" since `personal_finance_category`
+            // is null in the response unless this flag is set.
+            body.put("options", Map.of("include_personal_finance_category", true));
 
             Map<String, Object> resp = call("/transactions/sync", body);
 
@@ -383,7 +388,8 @@ public class PlaidService {
     private BigDecimal toBigDecimal(Object o) {
         if (o == null) return null;
         if (o instanceof BigDecimal bd) return bd;
-        if (o instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+        // Use toString() to preserve precision — doubleValue() introduces
+        // floating-point rounding errors that compound across summations.
         try { return new BigDecimal(o.toString()); } catch (NumberFormatException e) { return null; }
     }
 }

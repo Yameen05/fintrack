@@ -182,6 +182,7 @@ export default function Dashboard() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!confirm('Delete this transaction? This cannot be undone.')) return;
     setDeletingId(id);
     try { await transactionApi.delete(id); fetchData(); }
     catch (e) { console.error(e); }
